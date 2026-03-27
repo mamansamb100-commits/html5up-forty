@@ -7,25 +7,20 @@ on:
       - trivy
 
 env:
-  IMAGE_NAME: ci-html
-  DOCKER_REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: html5up-forty
+  DOCKER_REGISTRY: maman10
 
 jobs:
   # =============================== 
-  # JOB 1 - CI : BUILD + PUSH + SCAN
+  # JOB 1 - BUILD, TEST, SCAN & PUSH
   # ===============================
-  ci:
+  build-test-scan:
     runs-on: ubuntu-latest
-
+    outputs:
+      image-sha: ${{ steps.build-push.outputs.image-sha }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
-
-      - name: Display variables
-        run: |
-          echo "IMAGE_NAME: ${{ env.IMAGE_NAME }}"
-          echo "TAG: ${{ github.sha }}"
-          echo "DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -33,14 +28,25 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image
-        run: docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Verify image
-        run: docker image ls | grep ${{ env.IMAGE_NAME }}
+      - name: Build, test & push image (SHA + latest)
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
 
-      - name: Push Docker image
-        run: docker push ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Test image health
+        run: |
+          docker run --rm ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -52,28 +58,13 @@ jobs:
           vuln-type: 'os,library'
           ignore-unfixed: true
 
-  # =============================== 
-  # BONUS JOB - TRIVY SCAN BEFORE DEPLOY
-  # ===============================
-  scan-trivy:
-    runs-on: ubuntu-latest
-    needs: ci
-    steps:
-      - name: Run Trivy vulnerability scanner before deploy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: '${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-          vuln-type: 'os,library'
-          ignore-unfixed: true
+
 
   # =============================== 
   # JOB 2 - CD : DEPLOY
   # ===============================
   deploy:
-    needs: [ci, scan-trivy]
+    needs: build-test-scan
     runs-on: ubuntu-latest
 
     steps:
