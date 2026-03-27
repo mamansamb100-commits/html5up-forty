@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  IMAGE_NAME: webapp-ci-cd
+  IMAGE_NAME: ci-html
   IMAGE_TAG: 1.0.1
   DOCKER_REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }}
 
@@ -35,22 +35,35 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+          docker build -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
 
       - name: Verify image
         run: |
-          docker image ls | grep ${{ env.IMAGE_NAME }}
+          docker image ls | grep $IMAGE_NAME
 
       - name: Push Docker image
         run: |
-          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+
+      - name: Run Trivy vulnerability scanner
+        #uses: aquasecurity/trivy-action@0.20.0
+        #uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@master
+        with:
+          #image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/ci-html-demo:latest
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/ci-html:1.0.1
+          format: table
+          severity: CRITICAL,HIGH
+          #exit-code: 1
+          vuln-type: os,library
+          ignore-unfixed: true
 
   # ===============================
   # JOB 2 - CD : DEPLOY
   # ===============================
   deploy:
     needs: ci
-    runs-on: runner-lab
+    runs-on: ubuntu-latest
 
     steps:
       - name: Pull latest image
@@ -59,7 +72,7 @@ jobs:
 
       - name: Pull latest image
         run: |
-          docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker pull $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
       - name: Stop existing container
         run: |
@@ -74,4 +87,4 @@ jobs:
           docker run -d \
             -p 80:80 \
             --name ci-app \
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
