@@ -1,6 +1,6 @@
 # GitHub Actions Pipeline Fix & Trivy - TODO
 
-## Status: [IN PROGRESS] 
+## Status: [IN PROGRESS]
 
 ### 1. [DONE] Create 'trivy' branch ✅
    - `git checkout -b trivy` executed
@@ -16,9 +16,8 @@
 ### 4. [DONE] Local test ✅
    - Docker build & healthcheck passed
 
-### 5. [PENDING] Commit & push
-
-### 5. [PENDING] User sets GH secrets & tests
+### 5. [DONE] Commit & push ✅
+   - Committed & pushed to origin/trivy (after rebase)
 
 ### 6. [PENDING] Verify
 
