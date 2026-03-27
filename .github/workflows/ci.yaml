@@ -8,12 +8,10 @@ on:
 
 env:
   IMAGE_NAME: ci-html
-  IMAGE_TAG: 1.0.1
   DOCKER_REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
-
-  # ===============================
+  # =============================== 
   # JOB 1 - CI : BUILD + PUSH + SCAN
   # ===============================
   ci:
@@ -25,73 +23,84 @@ jobs:
 
       - name: Display variables
         run: |
-          echo "IMAGE_NAME: $IMAGE_NAME"
-          echo "IMAGE_TAG: $IMAGE_TAG"
-          echo "DOCKER_REGISTRY: $DOCKER_REGISTRY"
+          echo "IMAGE_NAME: ${{ env.IMAGE_NAME }}"
+          echo "TAG: ${{ github.sha }}"
+          echo "DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}"
 
       - name: Login to Docker Hub
-        run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
-          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Docker image
-        run: |
-          docker build -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+        run: docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
 
       - name: Verify image
-        run: |
-          docker image ls | grep $IMAGE_NAME
+        run: docker image ls | grep ${{ env.IMAGE_NAME }}
 
       - name: Push Docker image
-        run: |
-          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        run: docker push ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      # ✅ CORRECTION : image-ref pointe sur la vraie image buildée
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-          format: table
-          severity: CRITICAL,HIGH
-          exit-code: 0
-          vuln-type: os,library
+          image-ref: '${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          vuln-type: 'os,library'
           ignore-unfixed: true
 
+  # =============================== 
+  # BONUS JOB - TRIVY SCAN BEFORE DEPLOY
   # ===============================
+  scan-trivy:
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - name: Run Trivy vulnerability scanner before deploy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          vuln-type: 'os,library'
+          ignore-unfixed: true
+
+  # =============================== 
   # JOB 2 - CD : DEPLOY
   # ===============================
   deploy:
-    needs: ci
-    # ✅ CORRECTION : ubuntu-latest au lieu de aws-runner
+    needs: [ci, scan-trivy]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Hello deploy
-        run: |
-          echo "Hello deploy"
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Pull latest image
-        run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
-          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker pull $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        run: docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Stop existing container
-        run: |
-          docker stop ci-app || true
+        run: docker stop ci-app || true
 
       - name: Remove old container
-        run: |
-          docker rm ci-app || true
+        run: docker rm ci-app || true
 
       - name: Run new container
         run: |
           docker run -d \
             -p 80:80 \
             --name ci-app \
-            $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Verify container is running
         run: |
           docker ps | grep ci-app
-          echo "Site disponible sur http://localhost:80"
+          echo "✅ Site disponible sur http://localhost:80"
+
