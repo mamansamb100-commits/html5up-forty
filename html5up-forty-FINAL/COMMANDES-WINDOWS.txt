@@ -1,0 +1,153 @@
+================================================================
+  COMMANDES COMPLETES — Windows CMD
+  Projet  : html5up-forty
+  GitHub  : mamansamb100-commits
+  Docker  : maman10
+================================================================
+
+================================================================
+ ETAPE 0 — Creer le token Docker Hub (1 seule fois)
+================================================================
+
+1. Ouvrir : https://app.docker.com/settings/personal-access-tokens
+2. Cliquer "Generate new token"
+3. Description : lab-html5up
+4. Access : Read & Write
+5. Copier le token : dckr_pat_xxxxxxxxxxxxxxxxxxxx
+
+
+================================================================
+ ETAPE 1 — Se connecter a Docker Hub
+================================================================
+
+docker login -u maman10
+
+  → Quand Password s'affiche :
+     Clic droit dans CMD pour coller votre token
+     Appuyer sur Entree
+     (le texte ne s'affiche pas, c'est normal)
+
+Verifier la connexion :
+docker pull hello-world
+
+
+================================================================
+ ETAPE 2 — Aller dans le bon dossier
+================================================================
+
+cd C:\Users\maman\Documents\Devops\html5up-forty
+
+
+================================================================
+ ETAPE 3 — Copier les fichiers du ZIP
+================================================================
+
+Dezippez le fichier telecharge et copiez :
+  - .github\workflows\ci.yaml  →  dans votre repo
+  - Dockerfile                 →  a la racine
+  - nginx.conf                 →  a la racine
+
+Verifier :
+dir
+dir .github\workflows\
+
+
+================================================================
+ ETAPE 4 — Build Docker en local
+================================================================
+
+docker build -t ci-html:1.0.1 .
+
+docker images
+
+docker stop ci-app
+docker rm ci-app
+
+docker run -d --name ci-app -p 8090:80 ci-html:1.0.1
+
+docker ps
+
+start http://localhost:8090
+
+
+================================================================
+ ETAPE 5 — Push image vers Docker Hub (maman10)
+================================================================
+
+docker tag ci-html:1.0.1 maman10/ci-html:1.0.1
+
+docker push maman10/ci-html:1.0.1
+
+Verifier sur : https://hub.docker.com/r/maman10/ci-html
+
+
+================================================================
+ ETAPE 6 — Git push vers GitHub
+================================================================
+
+git add .
+
+git commit -m "feat: ajout pipeline CI/CD Docker + Trivy"
+
+git push origin main
+
+
+================================================================
+ ETAPE 7 — Creer la branche trivy
+================================================================
+
+git checkout -b trivy
+
+git push origin trivy
+
+git checkout main
+
+
+================================================================
+ ETAPE 8 — Configurer les secrets GitHub
+================================================================
+
+Ouvrir :
+https://github.com/mamansamb100-commits/html5up-forty/settings/secrets/actions
+
+Cliquer "New repository secret" et ajouter :
+
+  Nom   : DOCKERHUB_USERNAME
+  Valeur: maman10
+
+  Nom   : DOCKERHUB_TOKEN
+  Valeur: dckr_pat_xxxxxxxxxxxxxxxxxxxx (votre token)
+
+
+================================================================
+ ETAPE 9 — Verifier le pipeline GitHub Actions
+================================================================
+
+start https://github.com/mamansamb100-commits/html5up-forty/actions
+
+Vous devez voir :
+  JOB 1 - ci     → build + push + trivy scan  ✅
+  JOB 2 - deploy → pull + run conteneur       ✅
+
+
+================================================================
+ COMMANDES UTILES
+================================================================
+
+Voir logs du conteneur :
+docker logs ci-app
+
+Arreter le conteneur :
+docker stop ci-app
+
+Supprimer le conteneur :
+docker rm ci-app
+
+Tout nettoyer :
+docker stop ci-app && docker rm ci-app && docker rmi ci-html:1.0.1
+
+Voir toutes les images :
+docker images
+
+Voir les conteneurs actifs :
+docker ps
