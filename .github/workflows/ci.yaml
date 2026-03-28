@@ -13,11 +13,10 @@ env:
 jobs:
 
   # ===============================
-  # JOB 1 - CI : BUILD + PUSH + SCAN
+  # JOB 1 - CI : BUILD + PUSH
   # ===============================
   ci:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -45,28 +44,14 @@ jobs:
         run: |
           docker push $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
-      - name: Run Trivy vulnerability scanner
-        #uses: aquasecurity/trivy-action@0.20.0
-        #uses: aquasecurity/trivy-action@0.29.0
-        uses: aquasecurity/trivy-action@master
-        with:
-          #image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/ci-html-demo:latest
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/ci-html:1.0.1
-          format: table
-          severity: CRITICAL,HIGH
-          #exit-code: 1
-          vuln-type: os,library
-          ignore-unfixed: true
-
   # ===============================
   # JOB 2 - CD : DEPLOY
   # ===============================
   deploy:
     needs: ci
     runs-on: ubuntu-latest
-
     steps:
-      - name: Pull latest image
+      - name: Hello deploy
         run: |
           echo "Hello deploy"
 
