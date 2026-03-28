@@ -51,7 +51,7 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-      - name: Hello deploy
+      - name: Hello deploy 1
         run: |
           echo "Hello deploy"
 
