@@ -5,10 +5,10 @@ on:
     branches:
       - main
 
-env:
+env: 
   IMAGE_NAME: ci-html
   IMAGE_TAG: 1.0.1
-  DOCKER_REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKER_REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }} 
 
 jobs:
 
@@ -18,7 +18,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source code
+      - name: Checkout source code 1
         uses: actions/checkout@v4
 
       - name: Display variables
